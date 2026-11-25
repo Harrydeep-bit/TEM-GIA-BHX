@@ -17,6 +17,11 @@ import android.webkit.WebViewClient;
 
 import org.json.JSONObject;
 
+import com.google.mlkit.vision.barcode.common.Barcode;
+import com.google.mlkit.vision.codescanner.GmsBarcodeScanner;
+import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions;
+import com.google.mlkit.vision.codescanner.GmsBarcodeScanning;
+
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -119,6 +124,41 @@ public class MainActivity extends Activity {
         });
     }
 
+    private void replyScan(final int id, final boolean ok, final String value, final String error) {
+        final String json;
+        try {
+            JSONObject o = new JSONObject();
+            o.put("ok", ok);
+            if (value != null) o.put("value", value);
+            if (error != null) o.put("error", error);
+            json = JSONObject.quote(o.toString());
+        } catch (Exception e) {
+            return;
+        }
+        web.post(new Runnable() {
+            @Override
+            public void run() {
+                web.evaluateJavascript("window.__printCb && window.__printCb(" + id + "," + json + ")", null);
+            }
+        });
+    }
+
+    private void startScan(final int id) {
+        try {
+            GmsBarcodeScannerOptions opts = new GmsBarcodeScannerOptions.Builder()
+                    .setBarcodeFormats(Barcode.FORMAT_ALL_FORMATS)
+                    .build();
+            GmsBarcodeScanner scanner = GmsBarcodeScanning.getClient(this, opts);
+            scanner.startScan()
+                    .addOnSuccessListener(barcode -> replyScan(id, true, barcode.getRawValue(), null))
+                    .addOnCanceledListener(() -> replyScan(id, false, null, "cancel"))
+                    .addOnFailureListener(e -> replyScan(id, false, null,
+                            "trình quét chưa sẵn sàng (cần mạng lần đầu để tải bộ quét): " + e.getMessage()));
+        } catch (Exception e) {
+            replyScan(id, false, null, String.valueOf(e.getMessage()));
+        }
+    }
+
     private static String errText(Exception e) {
         if (e instanceof SocketTimeoutException) return "hết thời gian chờ (máy in không phản hồi)";
         if (e instanceof NoRouteToHostException) return "không tìm thấy máy in trong mạng (điện thoại chưa vào wifi siêu thị?)";
@@ -128,6 +168,16 @@ public class MainActivity extends Activity {
     }
 
     private class Bridge {
+        @JavascriptInterface
+        public void scan(final int id) {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    startScan(id);
+                }
+            });
+        }
+
         @JavascriptInterface
         public void ping(final int id, final String ip, final int port) {
             new Thread(new Runnable() {

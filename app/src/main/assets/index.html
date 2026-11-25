@@ -47,6 +47,11 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--g);outline-offse
 .hi span{flex:1;font-size:14px;min-width:0}
 .hi small{display:block;color:var(--mut);font-size:12px}
 .hi .btn{min-height:36px;padding:4px 10px;font-size:14px}
+.srow{display:flex;gap:8px;align-items:flex-end}
+.scanb{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.scanov{position:fixed;inset:0;z-index:50;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}
+.scanov video{width:100%;max-height:70vh;object-fit:cover}
+.scanov p{color:#fff;margin:0;font-size:15px}
 .only{display:none}
 body[data-ks="giam"] .km-msg,body[data-ks="tang"] .km-giam,body:not([data-ks="msg"]) .km-xx{display:none}
 .tag{display:inline-block;font-size:11px;font-weight:600;border-radius:4px;padding:1px 6px;margin-left:4px;background:#fff4dc;color:#9a5b00}.tag.dn{background:#fdecea;color:#b42318}
@@ -94,7 +99,9 @@ details summary{cursor:pointer;font-weight:600;color:var(--g2);padding:4px 0}
 
   <section class="card">
     <h2>Thông tin tem</h2>
-    <label>Tìm sản phẩm Masan (gõ vài chữ, không cần dấu)<input id="q" autocomplete="off" placeholder="vd: kokomi dai, chinsu 500"></label>
+    <div class="srow"><label style="flex:1">Tìm sản phẩm Masan (gõ vài chữ, không cần dấu)<input id="q" autocomplete="off" placeholder="vd: kokomi dai, chinsu 500"></label>
+      <button class="btn blue scanb" id="scan" aria-label="Quét mã vạch"><svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M3 5v4h2V5h4V3H5a2 2 0 0 0-2 2zm2 10H3v4a2 2 0 0 0 2 2h4v-2H5v-4zm14 4h-4v2h4a2 2 0 0 0 2-2v-4h-2v4zm0-16h-4v2h4v4h2V5a2 2 0 0 0-2-2zM7 7h2v10H7zm3 0h1v10h-1zm2 0h2v10h-2zm3 0h1v10h-1zm2 0h1v10h-1z"/></svg>Quét mã</button></div>
+    <div class="msg" id="smsg"></div>
     <div class="sug" id="sug"></div>
     <label>Tên sản phẩm<textarea id="name" placeholder="MÌ KOKOMI ĐẠI TÔM CHUA CAY GÓI 90GR"></textarea></label>
     <div class="row">
@@ -2856,6 +2863,46 @@ function applyProduct(code, name) {
   draw();
 }
 
+// ---------- quét mã vạch ----------
+let PENDING_BC = '';
+function bcMap() { return LS.get('tem_bcmap', {}); }
+function findByCode(v) {
+  const raw = String(v || '').trim(), digits = raw.replace(/\D/g, '');
+  const has = c => CAT.find(p => p[0] === c);
+  let hit = has(raw) || has(digits) || (digits && has(digits.replace(/^0+/, '')));
+  if (!hit) { const m = bcMap()[digits || raw]; if (m) hit = has(m); }
+  if (!hit && digits.length >= 10) hit = CAT.find(p => digits.indexOf(p[0]) >= 0 || raw.indexOf(p[0]) >= 0);
+  return hit;
+}
+function natScan() { return new Promise(res => { const id = ++CBN; CBS[id] = res; AndroidPrinter.scan(id); }); }
+function webScan() {
+  return new Promise(async res => {
+    const ov = document.createElement('div'); ov.className = 'scanov';
+    ov.innerHTML = '<video playsinline muted></video><p>Đưa mã vạch vào giữa khung hình</p><button class="btn gray">Đóng</button>';
+    document.body.appendChild(ov);
+    let stream = null, done = false;
+    const end = r => { if (done) return; done = true; if (stream) stream.getTracks().forEach(t => t.stop()); ov.remove(); res(r); };
+    ov.querySelector('button').onclick = () => end({ ok: false, error: 'cancel' });
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      const v = ov.querySelector('video'); v.srcObject = stream; await v.play();
+      const det = new BarcodeDetector();
+      const loop = async () => { if (done) return; try { const r = await det.detect(v); if (r.length) return end({ ok: true, value: r[0].rawValue }); } catch (e) {} setTimeout(loop, 250); };
+      loop();
+    } catch (e) { end({ ok: false, error: 'không mở được camera (' + (e.message || e) + ')' }); }
+  });
+}
+async function doScan() {
+  let r;
+  if (NATIVE && typeof AndroidPrinter.scan === 'function') r = await natScan();
+  else if ('BarcodeDetector' in window && navigator.mediaDevices) r = await webScan();
+  else { show('smsg', 'bad', 'Máy này chưa hỗ trợ quét mã. Anh cập nhật app In Tem Giá bản mới nhất.'); return; }
+  if (!r.ok) { if (r.error !== 'cancel') show('smsg', 'bad', 'Không quét được: ' + r.error); return; }
+  const v = String(r.value || '').trim(), hit = findByCode(v);
+  if (hit) { PENDING_BC = ''; applyProduct(hit[0], hit[1]); show('smsg', 'ok', 'Quét được mã ' + v + ': ' + hit[1] + '.'); }
+  else { PENDING_BC = v.replace(/\D/g, '') || v; show('smsg', 'info', 'Chưa biết mã vạch ' + v + '. Anh gõ tìm sản phẩm này bằng tên rồi bấm chọn, app sẽ nhớ mã vạch cho lần quét sau.'); $('q').focus(); }
+}
+
 // ---------- tìm sản phẩm ----------
 CAT.forEach(p => p.f = fold(p[1] + ' ' + p[0]));
 $('q').oninput = () => {
@@ -2865,7 +2912,7 @@ $('q').oninput = () => {
   box.style.display = 'block';
   const tag = c => { const it = PROMO.items[c]; if (!it) return ''; if (it.m) return '<span class="tag">KM</span>'; if (it.o && it.p < it.o) return '<span class="tag dn">Giảm giá</span>'; return '<span class="tag" style="background:#eef4fb;color:#1f4f80">' + money(it.p) + 'đ</span>'; };
   box.innerHTML = r.length ? r.map(p => '<button data-c="' + p[0] + '">' + esc(p[1]) + tag(p[0]) + '<small>Mã SP: ' + p[0] + (PROMO.items[p[0]] && PROMO.items[p[0]].m ? ' · ' + esc(PROMO.items[p[0]].m) : '') + '</small></button>').join('') : '<p class="hint" style="padding:8px">Không thấy, anh gõ tên trực tiếp vào ô Tên sản phẩm.</p>';
-  box.querySelectorAll('button').forEach(b => b.onclick = () => { const p = CAT.find(x => x[0] === b.dataset.c); applyProduct(p[0], p[1]); box.style.display = 'none'; $('q').value = ''; });
+  box.querySelectorAll('button').forEach(b => b.onclick = () => { const p = CAT.find(x => x[0] === b.dataset.c); applyProduct(p[0], p[1]); box.style.display = 'none'; $('q').value = ''; if (PENDING_BC) { const m = bcMap(); m[PENDING_BC] = p[0]; LS.set('tem_bcmap', m); show('smsg', 'ok', 'Đã nhớ mã vạch ' + PENDING_BC + ' là ' + p[1] + '. Lần sau quét là ra luôn.'); PENDING_BC = ''; } });
 };
 
 // ---------- khởi động ----------
@@ -2875,6 +2922,7 @@ $('q').oninput = () => {
   const f = LS.get('tem_form', null);
   if (f) { if (!f.kmstyle) { f.kmstyle = 'tang'; f.kmsize = '50'; } setForm(f); } else setForm({ type: 'thuong', kmstyle: 'msg', kmsize: '50', name: 'MÌ KOKOMI ĐẠI TÔM CHUA CAY GÓI 90GR', price: '4900', unit: 'Gói', cprice: '140000', cqty: '30', code: '1053047000343', loc: 'K59 M1 VT3 TB4', km: 'MUA 4 BẤT KỲ TẶNG 1 (SẢN PHẨM TẶNG CÓ GIÁ NHỎ NHẤT)', copies: '1' });
   promoInfo();
+  $('scan').onclick = doScan;
   $('ploadbtn').onclick = () => $('pfile').click();
   $('pfile').onchange = async e => {
     const file = e.target.files[0]; e.target.value = ''; if (!file) return;
