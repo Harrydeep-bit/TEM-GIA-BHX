@@ -1,0 +1,38 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'vn.temgia.app'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'vn.temgia.app'
+        minSdk 21
+        targetSdk 34
+        versionCode (System.getenv('GITHUB_RUN_NUMBER') ?: '1').toInteger()
+        versionName "1.0." + (System.getenv('GITHUB_RUN_NUMBER') ?: '0')
+    }
+
+    signingConfigs {
+        // Khóa ký cố định để cài bản mới đè lên bản cũ mà không mất dữ liệu
+        release {
+            storeFile file('temgia.keystore')
+            storePassword 'temgia123'
+            keyAlias 'temgia'
+            keyPassword 'temgia123'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
