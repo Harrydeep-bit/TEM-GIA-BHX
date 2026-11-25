@@ -48,7 +48,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--g);outline-offse
 .hi small{display:block;color:var(--mut);font-size:12px}
 .hi .btn{min-height:36px;padding:4px 10px;font-size:14px}
 .only{display:none}
-body[data-ks="giam"] .km-msg,body:not([data-ks="giam"]) .km-giam{display:none}
+body[data-ks="giam"] .km-msg,body[data-ks="tang"] .km-giam,body:not([data-ks="msg"]) .km-xx{display:none}
 .tag{display:inline-block;font-size:11px;font-weight:600;border-radius:4px;padding:1px 6px;margin-left:4px;background:#fff4dc;color:#9a5b00}.tag.dn{background:#fdecea;color:#b42318}
 body[data-t="thuong"] .t-thuong,body[data-t="km"] .t-km,body[data-t="nep"] .t-nep{display:flex}
 details summary{cursor:pointer;font-weight:600;color:var(--g2);padding:4px 0}
@@ -114,7 +114,12 @@ details summary{cursor:pointer;font-weight:600;color:var(--g2);padding:4px 0}
         </select></label>
         <label>Khổ tem<select id="kmsize"><option value="50">75 × 50 mm</option><option value="40">75 × 40 mm</option></select></label>
       </div>
-      <label class="km-giam">Giá cũ (đồng, sẽ in gạch ngang)<input id="oprice" inputmode="numeric" placeholder="64000"></label>
+      <label class="km-giam">Giá gốc (đồng, in gạch ngang; để trống nếu không có)<input id="oprice" inputmode="numeric" placeholder="21500"></label>
+      <div class="row km-xx">
+        <label>Xuất xứ<input id="origin" placeholder="để trống nếu không có"></label>
+        <label>PLU<input id="plu" placeholder="để trống nếu không có"></label>
+      </div>
+      <label class="ck km-xx"><input type="checkbox" id="xx" checked> In dòng "Xuất xứ: … PLU: …"</label>
       <label class="km-msg">Nội dung khuyến mãi<textarea id="km" placeholder="CHỈ 60.000Đ 2 CHAI"></textarea></label>
       <div class="row">
         <label>Áp dụng từ ngày<input type="date" id="d1"></label>
@@ -153,7 +158,8 @@ details summary{cursor:pointer;font-weight:600;color:var(--g2);padding:4px 0}
     <details><summary>Cài đặt in (chỉnh khi tem bị lệch, mờ hoặc cắt sai)</summary>
       <div class="row" style="margin-top:8px">
         <label>Chiều rộng vùng in (điểm)<select id="pw"><option value="576">576 · giấy 80mm</option><option value="512">512</option><option value="384">384 · giấy 58mm</option></select></label>
-        <label>Độ đậm (ngưỡng đen 60–230)<input id="th" type="number" min="60" max="230" value="160"></label>
+        <label>Nét chữ khi in<select id="bold"><option value="0">Thường</option><option value="1" selected>Đậm</option><option value="2">Rất đậm</option></select></label>
+        <label>Độ đậm (ngưỡng đen 60–230)<input id="th" type="number" min="60" max="230" value="190"></label>
         <label>Đẩy giấy thêm trước khi cắt (mm)<input id="feed" type="number" min="0" max="40" value="0"></label>
         <label>Bỏ bớt lề đầu tem (mm)<input id="trim" type="number" min="0" max="20" value="0"></label>
       </div>
@@ -2486,9 +2492,9 @@ const num = v => { const x = parseFloat(String(v || '').replace(/[^\d]/g, '')); 
 const pad = x => (x < 10 ? '0' : '') + x;
 const dmy = iso => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? m[3] + '/' + m[2] + '/' + m[1] : ''; };
 let TYPE = 'thuong';
-const FIELDS = ['name', 'price', 'unit', 'cprice', 'cqty', 'km', 'd1', 'd2', 'code', 'loc', 'copies', 'kmstyle', 'kmsize', 'oprice'];
-const CHECKS = ['qr', 'stamp', 'star'];
-const SETS = ['pw', 'th', 'feed', 'trim', 'cut', 'flip', 'printer', 'ip'];
+const FIELDS = ['name', 'price', 'unit', 'cprice', 'cqty', 'km', 'd1', 'd2', 'code', 'loc', 'copies', 'kmstyle', 'kmsize', 'oprice', 'origin', 'plu'];
+const CHECKS = ['qr', 'stamp', 'star', 'xx'];
+const SETS = ['pw', 'th', 'bold', 'feed', 'trim', 'cut', 'flip', 'printer', 'ip'];
 
 function form() {
   const f = { type: TYPE };
@@ -2562,7 +2568,7 @@ function drawThuong(f, W) {
 function badge(x, bx, by, bw, bh, size) {
   x.beginPath(); const r = bh * 0.28;
   x.moveTo(bx + r, by); x.arcTo(bx + bw, by, bx + bw, by + bh, r); x.arcTo(bx + bw, by + bh, bx, by + bh, r); x.arcTo(bx, by + bh, bx, by, r); x.arcTo(bx, by, bx + bw, by, r); x.closePath(); x.fill();
-  font(x, size, 700); x.fillStyle = '#fff'; const t = 'KHUYẾN MẠI'; x.fillText(t, bx + (bw - x.measureText(t).width) / 2, by + bh / 2 + size * 0.36); x.fillStyle = '#000';
+  font(x, size, 700); x.fillStyle = '#fff'; x.strokeStyle = '#fff'; x.lineWidth = 2.5; x.lineJoin = 'round'; const t = 'KHUYẾN MẠI', tx = bx + (bw - x.measureText(t).width) / 2, ty = by + bh / 2 + size * 0.36; x.strokeText(t, tx, ty); x.fillText(t, tx, ty); x.fillStyle = '#000'; x.strokeStyle = '#000';
 }
 function shortD(iso) { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? m[3] + '/' + m[2] : ''; }
 function footer(f, full) { const ap = (f.d1 || f.d2) ? 'Áp dụng: ' + (full ? dmy(f.d1) : shortD(f.d1)) + (f.d2 ? ' - ' + (full ? dmy(f.d2) : shortD(f.d2)) : '') : ''; return [f.loc.trim(), ap].filter(Boolean).join(' '); }
@@ -2607,15 +2613,27 @@ function drawMsg(f, W, H) {
     const m = wrapFit(x, f.km.toUpperCase(), 34 * Math.min(1, s * 1.1), W - 60, 2, 700);
     font(x, m.size, 700); m.lines.forEach(l => { y += m.size + 8; center(x, l, W, y); });
   }
-  const qs = H >= 400 ? 86 : 70, qy = H - qs - (H >= 400 ? 34 : 26);
+  const qs = H >= 400 ? 86 : 70, qy = H - qs - (H >= 400 ? 34 : 26), old = num(f.oprice);
   if (price) {
-    const base = Math.min(qy - 6, y + 104 * s);
-    priceSplit(x, W, base, price, unit, Math.min(122 * s + 10, base - y - 6), 44 * Math.min(1, s * 1.1));
+    const base = Math.min(qy - 6, y + 104 * s), bigMax = Math.min(122 * s + 10, base - y - 6), smallS = 44 * Math.min(1, s * 1.1);
+    if (old && old > price) priceRight(x, W, base, price, unit, bigMax, smallS, old, 40 * Math.min(1, s * 1.1));
+    else priceSplit(x, W, base, price, unit, bigMax, smallS);
   }
-  bottomBlock(x, f, W, H, qy, qs, 27 * Math.min(1, s * 1.08));
+  const xxOn = f.xx, b = bottomBlock(x, f, W, H, qy, qs, (xxOn ? 25 : 27) * Math.min(1, s * 1.08));
+  if (xxOn) { const t = 'Xuất xứ: ' + (f.origin || '').trim() + '   PLU: ' + (f.plu || '').trim(); font(x, H >= 400 ? 18 : 15, 400); fit(x, t, H >= 400 ? 18 : 15, b.nw, 400); x.fillText(t, b.nx, Math.min(b.y - 4, H - (H >= 400 ? 30 : 24))); }
   const ft = footer(f, true); if (ft) { font(x, 16, 700); fit(x, ft, 16, W - 60, 700); center(x, ft, W, H - 10); }
   if (f.star) star(x, W, H);
   return c;
+}
+// giá gốc gạch ngang bên trái, giá mới to bên phải
+function priceRight(x, W, base, price, unit, bigSize, smallSize, old, oldSize) {
+  font(x, oldSize, 400); const ot = money(old), ow = x.measureText(ot).width;
+  const ox = 22, oy = base - 8; x.fillText(ot, ox, oy); x.fillRect(ox - 4, oy - oldSize * 0.33, ow + 8, Math.max(2, oldSize * 0.07));
+  const p = money(price), big = p.split('.')[0], small = p.slice(big.length) + 'đ/' + unit, avail = W - 14 - (ox + ow + 26);
+  let bs = bigSize, ss = smallSize, wb, ws;
+  for (;;) { font(x, bs, 700); wb = x.measureText(big).width; font(x, ss, 400); ws = x.measureText(small).width; if (wb + ws + 4 <= avail || bs < 40) break; bs -= 4; ss = Math.max(22, ss - 1); }
+  const x0 = W - 14 - wb - ws - 4;
+  font(x, bs, 700); x.fillText(big, x0, base); font(x, ss, 400); x.fillText(small, x0 + wb + 4, base);
 }
 function drawKM(f, W) {
   const H = (f.kmsize === '40' ? 40 : 50) * DPM;
@@ -2675,13 +2693,22 @@ function forPrint(c, f, s) {
 function escpos(img, s, copies) {
   const W = img.width, H = img.height, wb = W >> 3, th = +s.th || 160, trim = Math.min(H - 8, Math.round((+s.trim || 0) * DPM));
   const d = img.getContext('2d').getImageData(0, 0, W, H).data, out = [0x1B, 0x40, 0x1B, 0x61, 0x00];
+  // ảnh đen trắng + làm dày nét (giống tem của app công ty)
+  let dk = new Uint8Array(W * H);
+  for (let i = 0, j = 0; i < dk.length; i++, j += 4) dk[i] = (0.299 * d[j] + 0.587 * d[j + 1] + 0.114 * d[j + 2]) < th ? 1 : 0;
+  const bold = +s.bold || 0;
+  for (let pass = 0; pass < bold; pass++) {
+    const n = new Uint8Array(dk);
+    for (let y = 0; y < H; y++) for (let xx = 0; xx < W; xx++) { const i = y * W + xx; if (dk[i]) continue; if ((xx > 0 && dk[i - 1]) || (pass > 0 && y > 0 && dk[i - W])) n[i] = 1; }
+    dk = n;
+  }
   const block = [];
   for (let y0 = trim; y0 < H; y0 += 128) {
     const h = Math.min(128, H - y0);
     block.push(0x1D, 0x76, 0x30, 0x00, wb & 255, wb >> 8, h & 255, h >> 8);
     for (let y = y0; y < y0 + h; y++) for (let bx = 0; bx < wb; bx++) {
       let v = 0;
-      for (let b = 0; b < 8; b++) { const i = (y * W + bx * 8 + b) * 4, l = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]; if (l < th) v |= 0x80 >> b; }
+      for (let b = 0; b < 8; b++) if (dk[y * W + bx * 8 + b]) v |= 0x80 >> b;
       block.push(v);
     }
   }
@@ -2816,12 +2843,12 @@ function applyProduct(code, name) {
   $('name').value = (name || (it && it.n) || '').toUpperCase(); $('code').value = code;
   const m = /(?:^|\s)(GÓI|CHAI|HỘP|LON|LY|TÔ|BỊCH|TÚI|LỐC|HŨ)(?=\s|\d|$)/i.exec($('name').value);
   if (m) $('unit').value = m[1][0].toUpperCase() + m[1].slice(1).toLowerCase();
-  ['price', 'oprice', 'km', 'cprice', 'cqty', 'loc'].forEach(k => $(k).value = '');
+  ['price', 'oprice', 'km', 'cprice', 'cqty', 'loc', 'origin', 'plu'].forEach(k => $(k).value = '');
   $('d1').value = ''; $('d2').value = '';
   if (it) {
     if (it.p) $('price').value = it.p;
     if (it.d) { $('d1').value = it.d; $('d2').value = endOfMonth(it.d); }
-    if (it.m) { setType('km', true); $('kmstyle').value = 'msg'; $('kmsize').value = '50'; $('km').value = it.m; }
+    if (it.m) { setType('km', true); $('kmstyle').value = 'msg'; $('kmsize').value = '50'; $('km').value = it.m; if (it.o && it.p && it.p < it.o) $('oprice').value = it.o; }
     else if (it.o && it.p && it.p < it.o) { setType('km', true); $('kmstyle').value = 'giam'; $('kmsize').value = '40'; $('oprice').value = it.o; }
     else if (TYPE === 'km') setType('thuong', true);
     show('msg', 'info', it.m ? 'Có khuyến mãi: ' + it.m + '. App đã chọn tem Khuyến mại + thông điệp.' : (it.o && it.p < it.o) ? 'Đang giảm giá ' + money(it.o) + ' → ' + money(it.p) + 'đ. App đã chọn tem Khuyến mại giảm giá.' : 'Giá mới ' + money(it.p) + 'đ (' + (it.why || 'cập nhật') + ' ngày ' + dmy(it.d) + ').');
@@ -2843,7 +2870,7 @@ $('q').oninput = () => {
 
 // ---------- khởi động ----------
 (function boot() {
-  const s = LS.get('tem_sets', null); if (s) SETS.forEach(k => { const el = $(k); if (s[k] === undefined) return; if (el.type === 'checkbox') el.checked = s[k]; else el.value = s[k]; });
+  const s = LS.get('tem_sets', null); if (s && s.bold === undefined) { s.bold = '1'; if (String(s.th) === '160') s.th = '190'; } if (s) SETS.forEach(k => { const el = $(k); if (s[k] === undefined) return; if (el.type === 'checkbox') el.checked = s[k]; else el.value = s[k]; });
   $('ipwrap').style.display = $('printer').value === 'custom' ? '' : 'none';
   const f = LS.get('tem_form', null);
   if (f) { if (!f.kmstyle) { f.kmstyle = 'tang'; f.kmsize = '50'; } setForm(f); } else setForm({ type: 'thuong', kmstyle: 'msg', kmsize: '50', name: 'MÌ KOKOMI ĐẠI TÔM CHUA CAY GÓI 90GR', price: '4900', unit: 'Gói', cprice: '140000', cqty: '30', code: '1053047000343', loc: 'K59 M1 VT3 TB4', km: 'MUA 4 BẤT KỲ TẶNG 1 (SẢN PHẨM TẶNG CÓ GIÁ NHỎ NHẤT)', copies: '1' });
