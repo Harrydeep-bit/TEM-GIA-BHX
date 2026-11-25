@@ -1,12 +1,16 @@
 package vn.temgia.app;
 
 import android.app.Activity;
+import android.content.Intent;
+import android.net.Uri;
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Base64;
 import android.view.Window;
 import android.webkit.JavascriptInterface;
+import android.webkit.ValueCallback;
+import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -27,6 +31,8 @@ import java.nio.charset.StandardCharsets;
 public class MainActivity extends Activity {
 
     private WebView web;
+    private ValueCallback<Uri[]> fileCb;
+    private static final int REQ_FILE = 1001;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -42,10 +48,38 @@ public class MainActivity extends Activity {
         s.setDomStorageEnabled(true);
         s.setDatabaseEnabled(true);
         web.setWebViewClient(new WebViewClient());
+        // Cho phép bấm nút chọn file (nạp file khuyến mãi .xlsx)
+        web.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onShowFileChooser(WebView v, ValueCallback<Uri[]> cb, FileChooserParams params) {
+                if (fileCb != null) fileCb.onReceiveValue(null);
+                fileCb = cb;
+                Intent i = new Intent(Intent.ACTION_GET_CONTENT);
+                i.addCategory(Intent.CATEGORY_OPENABLE);
+                i.setType("*/*");
+                try {
+                    startActivityForResult(Intent.createChooser(i, "Chọn file"), REQ_FILE);
+                } catch (Exception e) {
+                    fileCb = null;
+                    return false;
+                }
+                return true;
+            }
+        });
         web.addJavascriptInterface(new Bridge(), "AndroidPrinter");
         String html = readAsset("index.html");
         // Gốc https cố định để trang nhớ được cài đặt và danh sách tem (localStorage)
         web.loadDataWithBaseURL("https://temgia.app/", html, "text/html", "utf-8", null);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == REQ_FILE) {
+            if (fileCb != null) fileCb.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(resultCode, data));
+            fileCb = null;
+            return;
+        }
+        super.onActivityResult(requestCode, resultCode, data);
     }
 
     @Override
